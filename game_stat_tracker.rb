@@ -233,7 +233,7 @@ end
 puts "Welcome to the wonderful world of game stat tracking! \n\n"
 
 tracker = Tracker.new("hex")
-tracker.load("./sample_hex_data.rtf")
+tracker.load("~/Documents/stuff/game_notes/sample_hex_data.rtf")
 
 puts ''
 

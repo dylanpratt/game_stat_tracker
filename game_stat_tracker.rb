@@ -6,6 +6,7 @@ end
 # Public classes
 class Deck
   attr_reader("record")
+  attr_reader("archetype")
 
   def initialize(data)
     @colors = data[:colors]
@@ -21,6 +22,10 @@ class Deck
 
   def is_type?(givenType)
     @type == givenType
+  end
+
+  def is_archetype?(givenType)
+    @archetype == givenType
   end
 
 end
@@ -111,10 +116,11 @@ class Tracker
         strippedLine = line
         description = ''
       end
-      # TODO: check if the letter is lowercase, and if so call it a splash
+      # TODO: check if the letter is lowercase, and if so call it a splash (currently only looks for capital letters, so lowercase mean nothing. Possibly a good thing? (mono with a splash is basically mono, sorta. Maybe should have a "Rx" category...dunno))
       if match = strippedLine.match(/\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/)
         colorString = match[1]
         colors = colorString.scan(/\w/)
+        colors.sort!
         roughType = match[2]
         # Combine slang terms
         if roughType.match(/mid/)
@@ -127,7 +133,10 @@ class Tracker
         byes = hasBye ? 1 : 0
         record = {wins: match[3].to_i, losses: match[4].to_i, byes: byes}
 
+        # Create the archetype string, which needs to be standardized
         archetype = ""
+        colors.each {|color| archetype += color  }
+        archetype += " #{type}"
 
         data = {
          colors: colors,
@@ -145,8 +154,9 @@ class Tracker
   end
 
   def generateGameArcheTypes
-    types = []
-
+    types = @decks.map { |deck| deck.archetype }
+    types.uniq!
+    @gameArcheTypes = types
   end
 
   def getPropName(value)
@@ -299,11 +309,12 @@ class Tracker
     puts "Colors: Win Rate, Frequency"
     printData(@gameColors, Proc.new {|deck, color| deck.has_color?(color) })
 
-    # puts "\nArchetypes: Win Rate, Frequency"
-    # printDataAndCheckCount(@gameArcheTypes, Proc.new {|deck, type| deck.is_archetype?(type) })
-
     puts "\nTypes: Win Rate, Frequency"
     printDataAndCheckCount(@gameDeckTypes, Proc.new {|deck, type| deck.is_type?(type) })
+
+    puts "\nArchetypes: Win Rate, Frequency"
+    printDataAndCheckCount(@gameArcheTypes, Proc.new {|deck, type| deck.is_archetype?(type) })
+
   end
 
 

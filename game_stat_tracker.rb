@@ -5,15 +5,24 @@ end
 
 # Public classes
 class Deck
-  attr_reader("colors")
-  attr_reader("type")
   attr_reader("record")
 
-  def initialize(colors, type, record)
-    @colors = colors
-    @type = type
-    @record = record
+  def initialize(data)
+    @colors = data[:colors]
+    @type = data[:type]
+    @record = data[:record]
+    @description = data[:description]
+    @archetype = data[:archetype]
   end
+
+  def has_color?(givenColor)
+    @colors.any? {|color| color == givenColor}
+  end
+
+  def is_type?(givenType)
+    @type == givenType
+  end
+
 end
 
 class Tracker
@@ -29,6 +38,15 @@ class Tracker
           ["R", "W", "B", "D", "S"]
         when 'magic'
           ["B", "U", "W", "G", "R"]
+        else
+          []
+      end
+    @gameDeckTypes =
+      case game
+        when 'hex'
+          ["control", "aggro", "midrange", "bunnies", "dwarves"]
+        when 'magic'
+          ["control", "aggro", "midrange"]
         else
           []
       end
@@ -67,11 +85,34 @@ class Tracker
       lines.unshift(firstLine)
     end
 
-    puts 'data:', lines
+    # Just get the draft record lines
+    startIndex = nil
+    endIndex = nil
+    lines.each_with_index { |line, i|
+      if match = line.match(/draft\srecord/)
+        startIndex = i
+      elsif line.match(/(\\'97){3,}/)
+        endIndex = i
+        break
+      end
+    }
+    if exists(startIndex) and exists(endIndex)
+      lines = lines[startIndex+1..endIndex-1]
+    end
+
+    puts 'draft record:', lines
 
     lines.each { |line|
+      # Strip the description
+      if match = line.match(/(.*)\s-\s(.*)/)
+        strippedLine = match[1]
+        description = match[2]
+      else
+        strippedLine = line
+        description = ''
+      end
       # TODO: check if the letter is lowercase, and if so call it a splash
-      if match = line.match(/\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/)
+      if match = strippedLine.match(/\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/)
         colorString = match[1]
         colors = colorString.scan(/\w/)
         roughType = match[2]
@@ -85,44 +126,33 @@ class Tracker
         hasBye = match[5].match(/bye/) != nil
         byes = hasBye ? 1 : 0
         record = {wins: match[3].to_i, losses: match[4].to_i, byes: byes}
-        @decks << Deck.new(colors, type, record)
+
+        archetype = ""
+
+        data = {
+         colors: colors,
+         type: type,
+         archetype: archetype,
+         record: record,
+         description: description
+        }
+        @decks << Deck.new(data)
       end
     }
-    # puts '@decks', @decks.inspect
-    # puts '@decks.length', @decks.length
+
+    generateGameArcheTypes
+
   end
 
-  def getDecksOfColor(givenColor)
-    @decks.select {|deck| deck.colors.any? {|color| color == givenColor} }
+  def generateGameArcheTypes
+    types = []
+
   end
 
-  def getTotal(recordType, color)
-    total = 0
-    decks = color=='all' ? @decks : getDecksOfColor(color)
-    decks.each { |deck|
-      if recordType == 'all'
-        total += deck.record[:wins]
-        total += deck.record[:losses]
-      else
-        total += deck.record[recordType.to_sym]
-      end
-    }
-    total
-  end
-
-  def getPercentage(num, den)
-    ((num.to_f/den)*100).round
-  end
-
-  def winRate(color)
-    percentage = getPercentage(getTotal("wins", color), getTotal("all", color))
-    "#{percentage}%"
-  end
-
-  def getColorName(color)
+  def getPropName(value)
     case @game
       when 'hex'
-        case color
+        case value
           when 'R'
             "Ruby"
           when 'S'
@@ -134,7 +164,8 @@ class Tracker
           when 'W'
             "Wild"
           else
-            log "Error! Unknown color given", color
+            # Just print the value given
+            value
         end
       when 'magic'
         case color
@@ -156,36 +187,73 @@ class Tracker
     end
   end
 
-  def calcColorData(color)
+  def getTotal(recordType, decks)
+    total = 0
+    decks.each { |deck|
+      if recordType == 'all'
+        total += deck.record[:wins]
+        total += deck.record[:losses]
+      else
+        total += deck.record[recordType.to_sym]
+      end
+    }
+    total
+  end
+
+  def getPercentage(num, den)
+    ((num.to_f/den)*100).round
+  end
+
+  def getWinRate(decks)
+    percentage = getPercentage(getTotal("wins", decks), getTotal("all", decks))
+    "#{percentage}%"
+  end
+
+  def getDecksOfProp(func, value)
+    @decks.select {|deck| func.call(deck, value) }
+  end
+
+  def generateData(filterFunc, value)
+    decks = getDecksOfProp(filterFunc, value)
     data = {
-      winRate: winRate(color),
-      name: getColorName(color),
-      frequency: getTotal('all', color)
+      winRate: getWinRate(decks),
+      name: getPropName(value),
+      frequency: decks.length
     }
     data
   end
 
-  def printColorsData
-    puts "Colors: Win Rate"
-    colorsData = @gameColors.map { |color|
-      calcColorData(color)
-    }
-    # TODO: turn me into a generic function, since everything will be sorted by win rate
-    colorsData.sort_by! {|data|
-      data[:winRate]
-    }
-    colorsData.reverse!
-    colorsData.each {|data|
-      totalDrafts = getTotal('all', 'all')
-      frequencyPercentage = getPercentage(data[:frequency], totalDrafts)
-      puts "#{data[:name]}: #{data[:winRate]}, #{data[:frequency].round}/#{totalDrafts.round} drafts (#{frequencyPercentage}%)"
-    }
+  def sortByWinRate(givenData)
+    givenData.sort_by! { |data| data[:winRate] }
+    givenData.reverse!
+    givenData
+  end
+
+  def printData(possibleValues, filterFunc)
+    deckData = possibleValues.map { |value| generateData(filterFunc, value) }
+    deckData = sortByWinRate(deckData)
+    totalMatches = 0
+    deckData.each do |data|
+      freq = data[:frequency]
+      totalMatches += freq
+      frequencyPercentage = getPercentage(freq, getTotalDraftsPlayed)
+      puts "#{data[:name]}: #{data[:winRate]}, #{freq.round}/#{getTotalDraftsPlayed} drafts (#{frequencyPercentage}%)"
+    end
+    # Return total matches, to be verified if necessary
+    totalMatches
+  end
+
+  def printDataAndCheckCount(possibleValues, filterFunc)
+    totalMatches = printData(possibleValues, filterFunc)
+    # Make sure the total decks calculated is the number of drafts. Otherwise, we missed something
+    draftCount = @decks.length
+    puts "Error! There are #{draftCount} drafts recorded, but one of the analyzers came up with #{totalMatches}" unless totalMatches == draftCount
   end
 
   def calcPacks(record, includeByes)
     wins = record[:wins]
     # If we're to include byes, add them as wins
-    wins -= record[:byes] if (includeByes.nil? || includeByes == false)
+    wins += record[:byes] if includeByes
     if @game == 'hex'
       case wins
         when 0
@@ -212,18 +280,30 @@ class Tracker
       @decks.each { |deck|
         packs += calcPacks(deck.record, includeByes)
       }
-      packs.to_f/getTotalDraftsPlayed
+      (packs.to_f/getTotalDraftsPlayed).round(2)
     else
       puts 'Error! getPacksEarned type is unrecognized', type
     end
   end
 
+  def printOverallData
+    winRate = getWinRate(@decks)
+    puts "overall win rate: #{winRate} \n"
+    puts "#{getTotalDraftsPlayed} drafts, avg #{getPacksWon('all', false)}/#{getPacksWon('all', true)} packs earned/won \n\n"
+  end
+
   def print
     puts "#{@game} stats: "
-    winRate = winRate('all')
-    puts "overall win rate: #{winRate} \n"
-    puts "#{getTotalDraftsPlayed} drafts, avg #{getPacksWon('all', false)}/#{getPacksWon('all', true)} packs earned/won \n"
-    printColorsData()
+    printOverallData
+
+    puts "Colors: Win Rate, Frequency"
+    printData(@gameColors, Proc.new {|deck, color| deck.has_color?(color) })
+
+    # puts "\nArchetypes: Win Rate, Frequency"
+    # printDataAndCheckCount(@gameArcheTypes, Proc.new {|deck, type| deck.is_archetype?(type) })
+
+    puts "\nTypes: Win Rate, Frequency"
+    printDataAndCheckCount(@gameDeckTypes, Proc.new {|deck, type| deck.is_type?(type) })
   end
 
 
@@ -233,7 +313,7 @@ end
 puts "Welcome to the wonderful world of game stat tracking! \n\n"
 
 tracker = Tracker.new("hex")
-tracker.load("~/Documents/stuff/game_notes/sample_hex_data.rtf")
+tracker.load("/Users/dylanpratt/Documents/stuff/game_notes/hex_notes.rtf")
 
 puts ''
 

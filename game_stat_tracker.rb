@@ -25,23 +25,22 @@ class Deck
     # Create the color_combo string ignoring lower case splashes
     @color_combo = ""
     @colors.each {|color| @color_combo += color if exists(/[[:upper:]]/.match(color))  }
-    puts '@color_combo', @color_combo
   end
 
-  def has_color?(givenColor)
-    @colors.any? {|color| color == givenColor}
+  def has_color?(given_color)
+    @colors.any? {|color| color == given_color}
   end
 
-  def is_type?(givenType)
-    @type == givenType
+  def is_type?(given_type)
+    @type == given_type
   end
 
-  def is_archetype?(givenType)
-    @archetype == givenType
+  def is_archetype?(given_type)
+    @archetype == given_type
   end
 
-  def is_color_combo?(givenCombo)
-    @color_combo == givenCombo
+  def is_color_combo?(given_combo)
+    @color_combo == given_combo
   end
 
 end
@@ -53,7 +52,7 @@ class Tracker
     puts "Creating a tracker for #{game} \n\n"
     @game = game
     @decks = []
-    @gameColors =
+    @game_colors =
       case game
         when 'hex'
           ["R", "W", "B", "D", "S"]
@@ -62,7 +61,7 @@ class Tracker
         else
           []
       end
-    @gameDeckTypes =
+    @game_deck_types =
       case game
         when 'hex'
           ["control", "aggro", "midrange", "bunnies", "dwarves"]
@@ -86,39 +85,39 @@ class Tracker
 
     # TODO: support other types of files - check the kind of file and only do this if its rtf
     # Just get the lines after the rtf formatting
-    firstLine = nil
-    metaDataIndex = nil
+    first_line = nil
+    meta_data_index = nil
     lines.each_with_index { |line, i|
       if match = line.match(/.*\\f0\\fs24\s\\cf0(.*)/)
-        firstLine = match[1]
-        metaDataIndex = i
+        first_line = match[1]
+        meta_data_index = i
         break
       end
     }
 
     # Cut off the metadata from the start
-    if exists(metaDataIndex)
-      lines = lines[metaDataIndex+1..-1]
+    if exists(meta_data_index)
+      lines = lines[meta_data_index+1..-1]
     end
 
     # Add the first line that may have been shared with metadata
-    if exists(firstLine)
-      lines.unshift(firstLine)
+    if exists(first_line)
+      lines.unshift(first_line)
     end
 
     # Just get the draft record lines
-    startIndex = nil
-    endIndex = nil
+    start_index = nil
+    end_index = nil
     lines.each_with_index { |line, i|
       if match = line.match(/draft\srecord/)
-        startIndex = i
+        start_index = i
       elsif line.match(/(\\'97){3,}/)
-        endIndex = i
+        end_index = i
         break
       end
     }
-    if exists(startIndex) and exists(endIndex)
-      lines = lines[startIndex+1..endIndex-1]
+    if exists(start_index) and exists(end_index)
+      lines = lines[start_index+1..end_index-1]
     end
 
     puts 'draft record:', lines
@@ -126,27 +125,27 @@ class Tracker
     lines.each { |line|
       # Strip the description
       if match = line.match(/(.*)\s-\s(.*)/)
-        strippedLine = match[1]
+        stripped_line = match[1]
         description = match[2]
       else
-        strippedLine = line
+        stripped_line = line
         description = ''
       end
       # TODO: check if the letter is lowercase, and if so call it a splash (currently only looks for capital letters, so lowercase mean nothing. Possibly a good thing? (mono with a splash is basically mono, sorta. Maybe should have a "Rx" category...dunno))
-      if match = strippedLine.match(/\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/)
-        colorString = match[1]
-        colors = colorString.scan(/\w/)
+      if match = stripped_line.match(/\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/)
+        color_string = match[1]
+        colors = color_string.scan(/\w/)
         colors.sort!
-        roughType = match[2]
+        rough_type = match[2]
         # Combine slang terms
-        if roughType.match(/mid/)
+        if rough_type.match(/mid/)
           type = "midrange"
         else
-          type = roughType
+          type = rough_type
         end
         # TODO: check for '2' in the match and make byes 2 if its there
-        hasBye = match[5].match(/bye/) != nil
-        byes = hasBye ? 1 : 0
+        has_bye = match[5].match(/bye/) != nil
+        byes = has_bye ? 1 : 0
         record = {wins: match[3].to_i, losses: match[4].to_i, byes: byes}
 
         data = {
@@ -170,7 +169,7 @@ class Tracker
     @color_combos.uniq!
   end
 
-  def getPropName(value)
+  def get_prop_name(value)
     case @game
       when 'hex'
         case value
@@ -208,73 +207,83 @@ class Tracker
     end
   end
 
-  def getTotal(recordType, decks)
+  def get_total(record_type, decks)
     total = 0
     decks.each { |deck|
-      if recordType == 'all'
+      if record_type == 'all'
         total += deck.record[:wins]
         total += deck.record[:losses]
       else
-        total += deck.record[recordType.to_sym]
+        total += deck.record[record_type.to_sym]
       end
     }
     total
   end
 
-  def getPercentage(num, den)
+  def get_percentage(num, den)
     ((num.to_f/den)*100).round
   end
 
-  def getWinRate(decks)
-    percentage = getPercentage(getTotal("wins", decks), getTotal("all", decks))
-    "#{percentage}%"
+  def get_win_rate(decks)
+    get_percentage(get_total("wins", decks), get_total("all", decks))
   end
 
-  def getDecksOfProp(func, value)
+  def get_decks_of_prop(func, value)
     @decks.select {|deck| func.call(deck, value) }
   end
 
-  def generateData(filterFunc, value)
-    decks = getDecksOfProp(filterFunc, value)
+  def generate_data(filter_func, value)
+    decks = get_decks_of_prop(filter_func, value)
     data = {
-      winRate: getWinRate(decks),
-      name: getPropName(value),
+      win_rate: get_win_rate(decks),
+      name: get_prop_name(value),
       frequency: decks.length
     }
     data
   end
 
-  def sortByWinRate(givenData)
-    givenData.sort_by! { |data| data[:winRate] }
-    givenData.reverse!
-    givenData
+  def sort_by_win_rate(given_data)
+    # given_data.sort! {|data| data[:win_rate]}
+    given_data.sort! do |a, b|
+      a_wins = a[:win_rate]
+      b_wins = b[:win_rate]
+      if a_wins > b_wins
+        1
+      elsif a_wins < b_wins
+        -1
+      else
+        0
+      end
+    end
+    given_data.reverse!
+    given_data
   end
 
-  def printData(possibleValues, filterFunc)
-    deckData = possibleValues.map { |value| generateData(filterFunc, value) }
-    deckData = sortByWinRate(deckData)
-    totalMatches = 0
-    deckData.each do |data|
+  def print_data(possible_values, filter_func)
+    deck_data = possible_values.map { |value| generate_data(filter_func, value) }
+    deck_data = sort_by_win_rate(deck_data)
+    total_matches = 0
+    deck_data.each do |data|
       freq = data[:frequency]
-      totalMatches += freq
-      frequencyPercentage = getPercentage(freq, getTotalDraftsPlayed)
-      puts "#{data[:name]}: #{data[:winRate]}, #{freq.round}/#{getTotalDraftsPlayed} drafts (#{frequencyPercentage}%)"
+      total_matches += freq
+      frequency_percentage = get_percentage(freq, get_total_drafts_played)
+      puts "#{data[:name]}: #{data[:win_rate]}%, #{freq.round}/#{get_total_drafts_played} drafts (#{frequency_percentage}%)"
     end
     # Return total matches, to be verified if necessary
-    totalMatches
+    total_matches
   end
 
-  def printDataAndCheckCount(possibleValues, filterFunc)
-    totalMatches = printData(possibleValues, filterFunc)
+  def print_data_and_check_count(possible_values, filter_func)
+    total_matches = print_data(possible_values, filter_func)
     # Make sure the total decks calculated is the number of drafts. Otherwise, we missed something
-    draftCount = @decks.length
-    puts "Error! There are #{draftCount} drafts recorded, but one of the analyzers came up with #{totalMatches}" unless totalMatches == draftCount
+    draft_count = @decks.length
+    puts "Error! There are #{draft_count} drafts recorded, but one of the analyzers came up with #{total_matches}" unless total_matches == draft_count
   end
 
-  def calcPacks(record, includeByes)
+  def calc_packs(record, include_byes)
     wins = record[:wins]
     # If we're to include byes, add them as wins
-    wins += record[:byes] if includeByes
+    wins += record[:byes] if include_byes
     if @game == 'hex'
       case wins
         when 0
@@ -291,43 +300,43 @@ class Tracker
     end
   end
 
-  def getTotalDraftsPlayed
+  def get_total_drafts_played
     @decks.length
   end
 
-  def getPacksWon(type, includeByes)
+  def get_packs_won(type, include_byes)
     packs = 0
     if type == 'all'
       @decks.each { |deck|
-        packs += calcPacks(deck.record, includeByes)
+        packs += calc_packs(deck.record, include_byes)
       }
-      (packs.to_f/getTotalDraftsPlayed).round(2)
+      (packs.to_f/get_total_drafts_played).round(2)
     else
-      puts 'Error! getPacksEarned type is unrecognized', type
+      puts 'Error! get_packs_earned type is unrecognized', type
     end
   end
 
-  def printOverallData
-    winRate = getWinRate(@decks)
-    puts "overall win rate: #{winRate} \n"
-    puts "#{getTotalDraftsPlayed} drafts, avg #{getPacksWon('all', false)}/#{getPacksWon('all', true)} packs earned/won \n\n"
+  def print_overall_data
+    win_rate = get_win_rate(@decks)
+    puts "overall win rate: #{win_rate} \n"
+    puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)}/#{get_packs_won('all', true)} packs earned/won \n\n"
   end
 
   def print
     puts "#{@game} stats: "
-    printOverallData
+    print_overall_data
 
     puts "Colors: Win Rate, Frequency"
-    printData(@gameColors, Proc.new {|deck, color| deck.has_color?(color) })
+    print_data(@game_colors, Proc.new {|deck, color| deck.has_color?(color) })
 
     puts "\nTypes: Win Rate, Frequency"
-    printDataAndCheckCount(@gameDeckTypes, Proc.new {|deck, type| deck.is_type?(type) })
+    print_data_and_check_count(@game_deck_types, Proc.new {|deck, type| deck.is_type?(type) })
 
     puts "\nColor Combos: Win Rate, Frequency"
-    printDataAndCheckCount(@color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
+    print_data_and_check_count(@color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
 
     puts "\nArchetypes: Win Rate, Frequency"
-    printDataAndCheckCount(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
+    print_data_and_check_count(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
 
   end
 

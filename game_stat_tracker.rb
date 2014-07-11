@@ -7,13 +7,25 @@ end
 class Deck
   attr_reader("record")
   attr_reader("archetype")
+  attr_reader("color_combo")
 
   def initialize(data)
+    # Given variables
     @colors = data[:colors]
     @type = data[:type]
     @record = data[:record]
     @description = data[:description]
-    @archetype = data[:archetype]
+
+    # Calculated variables
+    # Create the archetype string, which needs to be standardized
+    @archetype = ""
+    @colors.each {|color| @archetype += color  }
+    @archetype += " #{@type}"
+
+    # Create the color_combo string ignoring lower case splashes
+    @color_combo = ""
+    @colors.each {|color| @color_combo += color if exists(/[[:upper:]]/.match(color))  }
+    puts '@color_combo', @color_combo
   end
 
   def has_color?(givenColor)
@@ -26,6 +38,10 @@ class Deck
 
   def is_archetype?(givenType)
     @archetype == givenType
+  end
+
+  def is_color_combo?(givenCombo)
+    @color_combo == givenCombo
   end
 
 end
@@ -133,15 +149,9 @@ class Tracker
         byes = hasBye ? 1 : 0
         record = {wins: match[3].to_i, losses: match[4].to_i, byes: byes}
 
-        # Create the archetype string, which needs to be standardized
-        archetype = ""
-        colors.each {|color| archetype += color  }
-        archetype += " #{type}"
-
         data = {
          colors: colors,
          type: type,
-         archetype: archetype,
          record: record,
          description: description
         }
@@ -149,14 +159,15 @@ class Tracker
       end
     }
 
-    generateGameArcheTypes
+    generate_categories
 
   end
 
-  def generateGameArcheTypes
-    types = @decks.map { |deck| deck.archetype }
-    types.uniq!
-    @gameArcheTypes = types
+  def generate_categories
+    @archetypes = @decks.map { |deck| deck.archetype }
+    @archetypes.uniq!
+    @color_combos = @decks.map { |deck| deck.color_combo }
+    @color_combos.uniq!
   end
 
   def getPropName(value)
@@ -312,8 +323,11 @@ class Tracker
     puts "\nTypes: Win Rate, Frequency"
     printDataAndCheckCount(@gameDeckTypes, Proc.new {|deck, type| deck.is_type?(type) })
 
+    puts "\nColor Combos: Win Rate, Frequency"
+    printDataAndCheckCount(@color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
+
     puts "\nArchetypes: Win Rate, Frequency"
-    printDataAndCheckCount(@gameArcheTypes, Proc.new {|deck, type| deck.is_archetype?(type) })
+    printDataAndCheckCount(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
 
   end
 

@@ -66,7 +66,7 @@ class Tracker
         when 'hex'
           ["control", "aggro", "midrange", "bunnies", "dwarves"]
         when 'magic'
-          ["control", "aggro", "midrange"]
+          ["control", "aggro", "midrange", "convoke", "auras"]
         else
           []
       end
@@ -188,7 +188,7 @@ class Tracker
             value
         end
       when 'magic'
-        case color
+        case value
           when 'R'
             "Red"
           when 'U'
@@ -200,7 +200,7 @@ class Tracker
           when 'G'
             "Green"
           else
-            log "Error! Unknown color given", color
+            value
         end
       else
         log "Error! Unknown game given", @game
@@ -298,6 +298,21 @@ class Tracker
           puts 'Error! Wins isnt 0, 1, 2 or 3', wins
       end
     end
+    if @game == 'magic'
+      losses = record[:losses]
+      case wins
+        when 0
+          return 0
+        when 1
+          return 0
+        when 2
+          return losses==1 ? 4 : 6
+        when 3
+          return 8
+        else
+          puts 'Error! Wins isnt 0, 1, 2 or 3', wins
+      end
+    end
   end
 
   def get_total_drafts_played
@@ -319,10 +334,15 @@ class Tracker
   def print_overall_data
     win_rate = get_win_rate(@decks)
     puts "overall win rate: #{win_rate} \n"
-    puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)}/#{get_packs_won('all', true)} packs earned/won \n\n"
+    case game
+      when 'hex'
+        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)}/#{get_packs_won('all', true)} packs earned/won \n\n"
+      when 'magic'
+        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)} packs won \n\n"
+    end
   end
 
-  def print
+  def print_results
     puts "#{@game} stats: "
     print_overall_data
 
@@ -337,19 +357,30 @@ class Tracker
 
     puts "\nArchetypes: Win Rate, Frequency"
     print_data_and_check_count(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
-
   end
 
+  def choose_and_load_file
+    case game
+      when "hex"
+        self.load("/Users/dylanpratt/Documents/stuff/game_notes/hex_notes.rtf")
+      when "magic"
+        self.load("/Users/dylanpratt/Documents/stuff/game_notes/magic_notes.rtf")
+      else
+        puts "Couldn't load file, unknown game type #{game}"
+    end
+  end
 
 end
 
+# Get the game type from arguments given (use hex as default)
+game = ARGV[0] || "hex"
 
 puts "Welcome to the wonderful world of game stat tracking! \n\n"
 
-tracker = Tracker.new("hex")
-tracker.load("/Users/dylanpratt/Documents/stuff/game_notes/hex_notes.rtf")
+tracker = Tracker.new(game)
+tracker.choose_and_load_file
 
 puts ''
 
-tracker.print()
+tracker.print_results()
 

@@ -42,7 +42,31 @@ class Deck
   def is_color_combo?(given_combo)
     @color_combo == given_combo
   end
+end
 
+class Hero
+  attr_reader("name")
+  attr_reader("record")
+  attr_reader("average_wins")
+  attr_reader("frequency")
+  attr_reader("twelves")
+
+  def initialize(data)
+    # Given variables
+    @name = data[:name]
+    @record = data[:record]
+    @average_wins = calc_average_wins
+    @twelves = calc_twelves
+    @frequency = @record.length
+  end
+
+  def calc_average_wins
+     @record.inject(:+).to_f / @record.length
+  end
+
+  def calc_twelves
+    @record.count(12)
+  end
 end
 
 class Tracker
@@ -51,25 +75,29 @@ class Tracker
   def initialize(game)
     puts "Creating a tracker for #{game} \n\n"
     @game = game
-    @decks = []
-    @game_colors =
-      case game
-        when 'hex'
-          ["R", "W", "B", "D", "S"]
-        when 'magic'
-          ["B", "U", "W", "G", "R"]
-        else
-          []
-      end
-    @game_deck_types =
-      case game
-        when 'hex'
-          ["control", "aggro", "midrange", "bunnies", "dwarves"]
-        when 'magic'
-          ["control", "aggro", "midrange", "convoke", "auras"]
-        else
-          []
-      end
+    if is_ccg?
+      @decks = []
+      @game_colors =
+        case game
+          when 'hex'
+            ["R", "W", "B", "D", "S"]
+          when 'magic'
+            ["B", "U", "W", "G", "R"]
+          else
+            []
+        end
+      @game_deck_types =
+        case game
+          when 'hex'
+            ["control", "aggro", "midrange", "bunnies", "dwarves"]
+          when 'magic'
+            ["control", "aggro", "midrange", "convoke", "auras", "graveyard"]
+          else
+            []
+        end
+    elsif game == "hearthstone"
+      @heroes = []
+    end
   end
 
   # TODO: for now just do stuff here, but later make these into functions, when I know how they should be divided better
@@ -105,7 +133,7 @@ class Tracker
       lines.unshift(first_line)
     end
 
-    # Just get the draft record lines
+    # Just get the draft record lines for ccgs
     start_index = nil
     end_index = nil
     lines.each_with_index { |line, i|
@@ -116,12 +144,41 @@ class Tracker
         break
       end
     }
+    start_index = 0 if game == "hearthstone"
     if exists(start_index) and exists(end_index)
       lines = lines[start_index+1..end_index-1]
     end
 
-    puts 'draft record:', lines
+    puts 'raw data:', lines
+    if is_ccg?
+      process_ccg_lines(lines)
+      generate_categories
+    else
+      process_hearthstone_lines(lines)
+    end
 
+  end
+
+  def process_hearthstone_lines(lines)
+    lines.each { |line|
+      if match = line.match(/(.*)\s*-\s*(.*)/)
+        name = match[1]
+        record = match[2]
+        record = record.scan(/\d{1,2}/)
+        record = record.map do |r|
+          r.to_i
+        end
+
+        data = {
+          name: name.strip,
+          record: record
+        }
+        @heroes << Hero.new(data)
+      end
+    }
+  end
+
+  def process_ccg_lines(lines)
     lines.each { |line|
       # Strip the description
       if match = line.match(/(.*)\s-\s(.*)/)
@@ -157,9 +214,6 @@ class Tracker
         @decks << Deck.new(data)
       end
     }
-
-    generate_categories
-
   end
 
   def generate_categories
@@ -167,6 +221,10 @@ class Tracker
     @archetypes.uniq!
     @color_combos = @decks.map { |deck| deck.color_combo }
     @color_combos.uniq!
+  end
+
+  def is_ccg?
+    ["hex", "magic"].include? game
   end
 
   def get_prop_name(value)
@@ -242,11 +300,28 @@ class Tracker
     data
   end
 
-  def sort_by_win_rate(given_data)
-    # given_data.sort! {|data| data[:win_rate]}
+  def sort_by_symbol(given_data, symbol)
+    puts "given_data #{given_data}"
     given_data.sort! do |a, b|
-      a_wins = a[:win_rate]
-      b_wins = b[:win_rate]
+      puts "a, b", a, b
+      a_wins = a[symbol]
+      b_wins = b[symbol]
+      if a_wins > b_wins
+        1
+      elsif a_wins < b_wins
+        -1
+      else
+        0
+      end
+    end
+    given_data.reverse!
+    given_data
+  end
+
+  def sort_hearthstone_data(given_data)
+    given_data.sort! do |a, b|
+      a_wins = a.average_wins
+      b_wins = b.average_wins
       if a_wins > b_wins
         1
       elsif a_wins < b_wins
@@ -261,7 +336,7 @@ class Tracker
 
   def print_data(possible_values, filter_func)
     deck_data = possible_values.map { |value| generate_data(filter_func, value) }
-    deck_data = sort_by_win_rate(deck_data)
+    deck_data = sort_by_symbol(deck_data, :win_rate)
     total_matches = 0
     deck_data.each do |data|
       freq = data[:frequency]
@@ -331,21 +406,38 @@ class Tracker
     end
   end
 
+  def total_arenas
+    total = 0
+    @heroes.each do |hero|
+      total += hero.frequency
+    end
+    total
+  end
+
+  def hearthstone_total_average
+    total_average = 0
+    @heroes.each do |hero|
+      total_average += hero.average_wins
+    end
+    (total_average / @heroes.length).round(2)
+  end
+
   def print_overall_data
-    win_rate = get_win_rate(@decks)
-    puts "overall win rate: #{win_rate} \n"
+    if is_ccg?
+      win_rate = get_win_rate(@decks)
+      puts "overall win rate: #{win_rate}% \n"
+    end
     case game
       when 'hex'
         puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)}/#{get_packs_won('all', true)} packs earned/won \n\n"
       when 'magic'
         puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)} packs won \n\n"
+      when 'hearthstone'
+        puts "#{total_arenas} arenas played, avg of #{hearthstone_total_average} games won \n\n"
     end
   end
 
-  def print_results
-    puts "#{@game} stats: "
-    print_overall_data
-
+  def print_ccg_data
     puts "Colors: Win Rate, Frequency"
     print_data(@game_colors, Proc.new {|deck, color| deck.has_color?(color) })
 
@@ -359,12 +451,34 @@ class Tracker
     print_data_and_check_count(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
   end
 
+  def print_hearthstone_data
+    puts "Hero, Avg Wins, Frequency"
+    heroes = sort_hearthstone_data(@heroes)
+    heroes.each do |hero|
+      freq = hero.frequency
+      frequency_percentage = get_percentage(freq, total_arenas)
+      puts "#{hero.name}: #{hero.average_wins.round(2)}, #{freq.round}/#{total_arenas} arenas (#{frequency_percentage}%), #{hero.twelves} twelves"
+    end
+  end
+
+  def print_results
+    puts "#{@game} stats: "
+    print_overall_data
+    if is_ccg?
+      print_ccg_data
+    else
+      print_hearthstone_data
+    end
+  end
+
   def choose_and_load_file
     case game
       when "hex"
         self.load("/Users/dylanpratt/Documents/stuff/game_notes/hex_notes.rtf")
       when "magic"
         self.load("/Users/dylanpratt/Documents/stuff/game_notes/magic_notes.rtf")
+      when "hearthstone"
+        self.load("/Users/dylanpratt/Documents/stuff/game_notes/hearthstone_notes.rtf")
       else
         puts "Couldn't load file, unknown game type #{game}"
     end

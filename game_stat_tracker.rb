@@ -71,10 +71,12 @@ end
 
 class Tracker
   attr_reader("game")
+  attr_reader("command")
 
-  def initialize(game)
+  def initialize(game, command)
     puts "Creating a tracker for #{game} \n\n"
     @game = game
+    @command = command
     if is_ccg?
       @decks = []
       @game_colors =
@@ -133,6 +135,8 @@ class Tracker
       lines.unshift(first_line)
     end
 
+    original_lines = lines
+
     # Just get the draft record lines for ccgs
     start_index = nil
     end_index = nil
@@ -157,6 +161,29 @@ class Tracker
       process_hearthstone_lines(lines)
     end
 
+    # Follow command
+    # Cut out the lines from the file and save them in a new file
+    # if command == "purge"
+    #   original_lines.slice!(start_index+1, end_index-start_index-1)
+    #   do_purge(lines, original_lines)
+    # end
+
+  end
+
+  def do_purge(lines, original_lines)
+    file_name = case game
+      when "hex"
+        "/Users/dylanpratt/Documents/stuff/game_notes/new_hex_notes"
+      when "magic"
+        "/Users/dylanpratt/Documents/stuff/game_notes/new_magic_notes"
+      when "hearthstone"
+        "/Users/dylanpratt/Documents/stuff/game_notes/new_hearthstone_notes"
+      else
+        nil
+    end
+    File.open(file_name, "w+") do |file|
+      file.write original_lines
+    end
   end
 
   def process_hearthstone_lines(lines)
@@ -301,9 +328,7 @@ class Tracker
   end
 
   def sort_by_symbol(given_data, symbol)
-    puts "given_data #{given_data}"
     given_data.sort! do |a, b|
-      puts "a, b", a, b
       a_wins = a[symbol]
       b_wins = b[symbol]
       if a_wins > b_wins
@@ -446,7 +471,9 @@ class Tracker
 
     puts "\nColor Combos: Win Rate, Frequency"
     print_data_and_check_count(@color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
+  end
 
+  def print_archetypes
     puts "\nArchetypes: Win Rate, Frequency"
     print_data_and_check_count(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
   end
@@ -487,11 +514,12 @@ class Tracker
 end
 
 # Get the game type from arguments given (use hex as default)
-game = ARGV[0] || "hex"
+game = ARGV[0] || "magic"
+command = ARGV[1]
 
 puts "Welcome to the wonderful world of game stat tracking! \n\n"
 
-tracker = Tracker.new(game)
+tracker = Tracker.new(game, command)
 tracker.choose_and_load_file
 
 puts ''

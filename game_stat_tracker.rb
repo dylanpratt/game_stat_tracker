@@ -322,7 +322,8 @@ class Tracker
     data = {
       win_rate: get_win_rate(decks),
       name: get_prop_name(value),
-      frequency: decks.length
+      frequency: decks.length,
+      average_packs_won: get_packs_won(decks)
     }
     data
   end
@@ -359,7 +360,8 @@ class Tracker
     given_data
   end
 
-  def print_data(possible_values, filter_func)
+  def print_data(section_name, possible_values, filter_func)
+    puts "\n#{section_name}: Win %, Packs Won, Frequency"
     deck_data = possible_values.map { |value| generate_data(filter_func, value) }
     deck_data = sort_by_symbol(deck_data, :win_rate)
     total_matches = 0
@@ -367,14 +369,14 @@ class Tracker
       freq = data[:frequency]
       total_matches += freq
       frequency_percentage = get_percentage(freq, get_total_drafts_played)
-      puts "#{data[:name]}: #{data[:win_rate]}%, #{freq.round}/#{get_total_drafts_played} drafts (#{frequency_percentage}%)"
+      puts "#{data[:name]}: #{data[:win_rate]}%, #{data[:average_packs_won]}, #{freq.round}/#{get_total_drafts_played} drafts (#{frequency_percentage}%)"
     end
     # Return total matches, to be verified if necessary
     total_matches
   end
 
-  def print_data_and_check_count(possible_values, filter_func)
-    total_matches = print_data(possible_values, filter_func)
+  def print_data_and_check_count(section_name, possible_values, filter_func)
+    total_matches = print_data(section_name, possible_values, filter_func)
     # Make sure the total decks calculated is the number of drafts. Otherwise, we missed something
     draft_count = @decks.length
     puts "Error! There are #{draft_count} drafts recorded, but one of the analyzers came up with #{total_matches}" unless total_matches == draft_count
@@ -419,16 +421,12 @@ class Tracker
     @decks.length
   end
 
-  def get_packs_won(type, include_byes)
+  def get_packs_won(decks, include_byes = false)
     packs = 0
-    if type == 'all'
-      @decks.each { |deck|
-        packs += calc_packs(deck.record, include_byes)
-      }
-      (packs.to_f/get_total_drafts_played).round(2)
-    else
-      puts 'Error! get_packs_earned type is unrecognized', type
-    end
+    decks.each { |deck|
+      packs += calc_packs(deck.record, include_byes)
+    }
+    (packs.to_f/(decks.length)).round(2)
   end
 
   def total_arenas
@@ -450,32 +448,26 @@ class Tracker
   def print_overall_data
     if is_ccg?
       win_rate = get_win_rate(@decks)
-      puts "overall win rate: #{win_rate}% \n"
+      puts "overall win rate: #{win_rate}%"
     end
     case game
       when 'hex'
-        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)}/#{get_packs_won('all', true)} packs earned/won \n\n"
+        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won(@decks, false)}/#{get_packs_won(@decks, true)} packs earned/won"
       when 'magic'
-        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won('all', false)} packs won \n\n"
+        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won(@decks, false)} packs won"
       when 'hearthstone'
         puts "#{total_arenas} arenas played, avg of #{hearthstone_total_average} games won \n\n"
     end
   end
 
   def print_ccg_data
-    puts "Colors: Win Rate, Frequency"
-    print_data(@game_colors, Proc.new {|deck, color| deck.has_color?(color) })
-
-    puts "\nTypes: Win Rate, Frequency"
-    print_data_and_check_count(@game_deck_types, Proc.new {|deck, type| deck.is_type?(type) })
-
-    puts "\nColor Combos: Win Rate, Frequency"
-    print_data_and_check_count(@color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
+    print_data('Colors', @game_colors, Proc.new {|deck, color| deck.has_color?(color) })
+    print_data_and_check_count('Types', @game_deck_types, Proc.new {|deck, type| deck.is_type?(type) })
+    print_data_and_check_count('Color Combos', @color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
   end
 
   def print_archetypes
-    puts "\nArchetypes: Win Rate, Frequency"
-    print_data_and_check_count(@archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
+    print_data_and_check_count('Archetypes', @archetypes, Proc.new {|deck, type| deck.is_archetype?(type) })
   end
 
   def print_hearthstone_data

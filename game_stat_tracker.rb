@@ -71,12 +71,12 @@ end
 
 class Tracker
   attr_reader("game")
-  attr_reader("command")
+  attr_reader("modifier")
 
-  def initialize(game, command)
+  def initialize(game, modifier)
     puts "Creating a tracker for #{game} \n\n"
     @game = game
-    @command = command
+    @modifier = modifier
     if is_ccg?
       @decks = []
       @game_colors =
@@ -93,7 +93,14 @@ class Tracker
           when 'hex'
             ["control", "aggro", "midrange", "bunnies", "dwarves"]
           when 'magic'
-            ["control", "aggro", "midrange", "convoke", "auras", "graveyard"]
+            if modifier == 'm15'
+              ["control", "aggro", "midrange", "convoke", "auras", "graveyard"]
+            elsif modifier == 'khans'
+              []
+            else
+              ["control", "aggro", "midrange"]
+            end
+          when 'magic-m15'
           else
             []
         end
@@ -216,21 +223,38 @@ class Tracker
         description = ''
       end
       # TODO: check if the letter is lowercase, and if so call it a splash (currently only looks for capital letters, so lowercase mean nothing. Possibly a good thing? (mono with a splash is basically mono, sorta. Maybe should have a "Rx" category...dunno))
-      if match = stripped_line.match(/\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/)
+      reg_exp = support_provided_types? ? /\s*(\w*)\s(\w*)\s.*(\d).*(\d)\s*(\S*)/ : /\s*(\w*)\s.*(\d).*(\d)\s*(\S*)/
+      if match = stripped_line.match(reg_exp)
+        # Colors
         color_string = match[1]
         colors = color_string.scan(/\w/)
         colors.sort!
-        rough_type = match[2]
-        # Combine slang terms
-        if rough_type.match(/mid/)
-          type = "midrange"
+
+        # Types
+        if support_provided_types?
+          rough_type = match[2]
+          # Combine slang terms
+          if rough_type.match(/mid/)
+            type = "midrange"
+          else
+            type = rough_type
+          end
         else
-          type = rough_type
+          type = compute_type_from_colors(colors)
         end
-        # TODO: check for '2' in the match and make byes 2 if its there
-        has_bye = match[5].match(/bye/) != nil
+
+        # Record
+        if support_provided_types?
+          wins = match[3].to_i
+          losses = match[4].to_i
+          has_bye = match[5].match(/bye/) != nil if support_byes?
+        else
+          wins = match[2].to_i
+          losses = match[3].to_i
+          has_bye = match[4].match(/bye/) != nil if support_byes?
+        end
         byes = has_bye ? 1 : 0
-        record = {wins: match[3].to_i, losses: match[4].to_i, byes: byes}
+        record = {wins: wins, losses: losses.to_i, byes: byes}
 
         data = {
          colors: colors,
@@ -243,6 +267,14 @@ class Tracker
     }
   end
 
+  def compute_type_from_colors(colors)
+    if modifier == 'khans'
+      'temp'
+    else
+      'unknown'
+    end
+  end
+
   def generate_categories
     @archetypes = @decks.map { |deck| deck.archetype }
     @archetypes.uniq!
@@ -252,6 +284,18 @@ class Tracker
 
   def is_ccg?
     ["hex", "magic"].include? game
+  end
+
+  def support_provided_types?
+    if modifier == 'khans'
+      false
+    else
+      true
+    end
+  end
+
+  def support_byes?
+    game == 'hex' ? true : false
   end
 
   def get_prop_name(value)
@@ -306,6 +350,7 @@ class Tracker
   end
 
   def get_percentage(num, den)
+    return 0 if num == 0 && den == 0
     ((num.to_f/den)*100).round
   end
 
@@ -507,11 +552,11 @@ end
 
 # Get the game type from arguments given (use hex as default)
 game = ARGV[0] || "magic"
-command = ARGV[1]
+modifier = ARGV[1]
 
 puts "Welcome to the wonderful world of game stat tracking! \n\n"
 
-tracker = Tracker.new(game, command)
+tracker = Tracker.new(game, modifier)
 tracker.choose_and_load_file
 
 puts ''

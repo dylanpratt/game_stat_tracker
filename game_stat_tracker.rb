@@ -1,3 +1,5 @@
+# Public variables
+
 # Public methods
 def exists(object)
   object !=nil
@@ -12,7 +14,7 @@ class Deck
   def initialize(data)
     # Given variables
     @colors = data[:colors]
-    @type = data[:type]
+    @types = data[:types]
     @record = data[:record]
     @description = data[:description]
 
@@ -20,7 +22,7 @@ class Deck
     # Create the archetype string, which needs to be standardized
     @archetype = ""
     @colors.each {|color| @archetype += color  }
-    @archetype += " #{@type}"
+    @archetype += " #{@types}"
 
     # Create the color_combo string ignoring lower case splashes
     @color_combo = ""
@@ -31,8 +33,8 @@ class Deck
     @colors.any? {|color| color == given_color}
   end
 
-  def is_type?(given_type)
-    @type == given_type
+  def has_type?(given_type)
+    @types.any? {|type| type == given_type}
   end
 
   def is_archetype?(given_type)
@@ -96,7 +98,7 @@ class Tracker
             if modifier == 'm15'
               ["control", "aggro", "midrange", "convoke", "auras", "graveyard"]
             elsif modifier == 'khans'
-              []
+              ['jeskai-strict', 'jeskai-loose', 'temur-strict', 'temur-loose', 'mardu-strict', 'mardu-loose', 'sultai-strict', 'sultai-loose', 'abzan-strict', 'abzan-loose', '2-color', '2-color-with-splash', '4-color', '5-color']
             else
               ["control", "aggro", "midrange"]
             end
@@ -235,12 +237,12 @@ class Tracker
           rough_type = match[2]
           # Combine slang terms
           if rough_type.match(/mid/)
-            type = "midrange"
+            types = ["midrange"]
           else
-            type = rough_type
+            types = [rough_type]
           end
         else
-          type = compute_type_from_colors(colors)
+          types = compute_types_from_colors(colors)
         end
 
         # Record
@@ -258,7 +260,7 @@ class Tracker
 
         data = {
          colors: colors,
-         type: type,
+         types: types,
          record: record,
          description: description
         }
@@ -267,11 +269,79 @@ class Tracker
     }
   end
 
-  def compute_type_from_colors(colors)
+  def compute_types_from_colors(colors)
+    # Khans deck types
     if modifier == 'khans'
-      'temp'
+      types = []
+      # 2, 4 and 5 color decks
+      if colors.length == 5
+        types << '5-color'
+      elsif colors.length == 4
+        types << '4-color'
+      elsif colors.length == 2
+        types << '2-color'
+      end
+
+      # 3 color decks
+      if colors.length == 3
+        # Make it a string, slightly easier to deal with (sort of)
+        colors_string = ""
+        colors.each {|color| colors_string += color  }
+        # If there is exactly one lower case letter it must be 2-color-with-splash
+        if colors_string.match(/[A-Z]{2}[a-z]{1}/)
+          types << '2-color-with-splash'
+          # Loose 2-color-with-splash clan matches
+          lowercase_colors = colors.map{|color| color.downcase}
+          if (lowercase_colors & ['g', 'r', 'u']).length == 3
+            types << 'temur-loose'
+          elsif (lowercase_colors & ['r', 'u', 'w']).length == 3
+            types << 'jeskai-loose'
+          elsif (lowercase_colors & ['b', 'r', 'w']).length == 3
+            types << 'mardu-loose'
+          elsif (lowercase_colors & ['b', 'g', 'u']).length == 3
+            types << 'sultai-loose'
+          elsif (lowercase_colors & ['b', 'g', 'w']).length == 3
+            types << 'abzan-loose'
+          end
+
+        # If there are exactly 3 uppercase letters we're looking at real clans
+        elsif colors_string.match(/[A-Z]{3}/)
+          case colors_string
+            when 'GRU'
+              types << 'temur-strict'
+            when 'RUW'
+              types << 'jeskai-strict'
+            when 'BRW'
+              types << 'mardu-strict'
+            when 'BGU'
+              types << 'sultai-strict'
+            when 'BGW'
+              types << 'abzan-strict'
+          end
+        end
+      end
+
+      # Loose 4 or 5 color clan matches
+      if colors.length == 4 || colors.length == 5
+        if (colors & ['G', 'R', 'U']).length == 3
+          types << 'temur-loose'
+        elsif (colors & ['R', 'U', 'W']).length == 3
+          types << 'jeskai-loose'
+        elsif (colors & ['B', 'R', 'W']).length == 3
+          types << 'mardu-loose'
+        elsif (colors & ['B', 'G', 'U']).length == 3
+          types << 'sultai-loose'
+        elsif (colors & ['B', 'G', 'W']).length == 3
+          types << 'abzan-loose'
+        end
+      end
+
+      # If for some reason types is still empty, mark it as unknown
+      types << 'unknown' if types.length == 0
+      return types
+
     else
-      'unknown'
+      []
     end
   end
 
@@ -286,6 +356,7 @@ class Tracker
     ["hex", "magic"].include? game
   end
 
+  # Does the game and modifier support providing a deck type?
   def support_provided_types?
     if modifier == 'khans'
       false
@@ -507,7 +578,7 @@ class Tracker
 
   def print_ccg_data
     print_data('Colors', @game_colors, Proc.new {|deck, color| deck.has_color?(color) })
-    print_data_and_check_count('Types', @game_deck_types, Proc.new {|deck, type| deck.is_type?(type) })
+    print_data('Types', @game_deck_types, Proc.new {|deck, type| deck.has_type?(type) })
     print_data_and_check_count('Color Combos', @color_combos, Proc.new {|deck, colors| deck.is_color_combo?(colors) })
   end
 
@@ -530,6 +601,7 @@ class Tracker
     print_overall_data
     if is_ccg?
       print_ccg_data
+      # print_archetypes
     else
       print_hearthstone_data
     end

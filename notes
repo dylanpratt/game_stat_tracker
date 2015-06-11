@@ -25,6 +25,5 @@ things I want to add:
 -option to compute splash stats - win % with/without a splash, which colors have the best splash win % (as splashed color or base colors)
 -maybe make “print_archetypes” an option in teh command too? (currently have to comment it back in). Need to think about how to control options, whether in the command or not
 -maybe instead of doing everything automatically, ask for user input for options. Or at least there could be a command for with_options or something to be more interactive. Not sure exactly..
--ability to easily analyze old formats too - need to think of the best way to do this, either pass in the filename or keyword or something.
-  -also want a way to generate a doc out of this (I think I started this with “do_purge”
-  -then aggregate all sets stats (color, archetype, etc)
+-ability to generate a doc, so that I don't need to rerun the command for old formats (I think I started this with “do_purge”)
+-ability to analyze all all sets stats (maybe using the generated docs above?)

@@ -424,7 +424,8 @@ class Tracker
   end
 
   def print_data(section_name, possible_values, filter_func)
-    puts "\n#{section_name}: Win %, Packs Won, Frequency"
+    prizes_name = is_phantom_draft ? "Phantom Points" : "Packs Won"
+    puts "\n#{section_name}: Win %, #{prizes_name}, Frequency"
     deck_data = possible_values.map { |value| generate_data(filter_func, value) }
     deck_data = sort_by_symbol(deck_data, :win_rate)
     total_matches = 0
@@ -445,7 +446,7 @@ class Tracker
     puts "Error! There are #{draft_count} drafts recorded, but one of the analyzers came up with #{total_matches}" unless total_matches == draft_count
   end
 
-  def calc_packs(record, include_byes)
+  def calc_prizes(record, include_byes)
     wins = record[:wins]
     # If we're to include byes, add them as wins
     wins += record[:byes] if include_byes
@@ -465,6 +466,23 @@ class Tracker
     end
     if @game == 'magic'
       losses = record[:losses]
+      # Different prize support for phantom drafts
+      if is_phantom_draft
+        case wins
+          when 0
+            return 2
+          when 1
+            return 6
+          when 2
+            return 16
+          when 3
+            return 24
+          else
+            puts 'Error! Wins isnt 0, 1, 2 or 3', wins
+            return 0
+        end
+      end
+
       case wins
         when 0
           return 0
@@ -476,8 +494,13 @@ class Tracker
           return 8
         else
           puts 'Error! Wins isnt 0, 1, 2 or 3', wins
+          return 0
       end
     end
+  end
+
+  def is_phantom_draft
+    modifier == "mm15"
   end
 
   def get_total_drafts_played
@@ -487,7 +510,7 @@ class Tracker
   def get_packs_won(decks, include_byes = false)
     packs = 0
     decks.each { |deck|
-      packs += calc_packs(deck.record, include_byes)
+      packs += calc_prizes(deck.record, include_byes)
     }
     (packs.to_f/(decks.length)).round(2)
   end
@@ -517,7 +540,8 @@ class Tracker
       when 'hex'
         puts "#{get_total_drafts_played} drafts, avg #{get_packs_won(@decks, false)}/#{get_packs_won(@decks, true)} packs earned/won"
       when 'magic'
-        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won(@decks, false)} packs won"
+        prizes_name = is_phantom_draft ? "phantom points" : "packs won"
+        puts "#{get_total_drafts_played} drafts, avg #{get_packs_won(@decks, false)} #{prizes_name}"
       when 'hearthstone'
         puts "#{total_arenas} arenas played, avg of #{hearthstone_total_average} games won \n\n"
     end

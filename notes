@@ -1,0 +1,30 @@
+
+game stat tracker notes:
+
+organization:
+current composition:
+-class Deck which initializes with attributes and has helper methods defined to analyze attributes
+-class Hero which is similiar to deck but for hearthstone
+
+to do:
+-create separate files!
+  -Hero
+  -Deck
+  -Tracker
+  -maybe everything hearthstone related should be in a file/directory seperate from ccg stuff?
+-refactor whatever necessary, break into chunks
+-Tracker:
+  -huge! break up into different parts
+    -loader, parser, analyzer, printer
+  -load is quite long, break up into a few funtions
+  -process_ccg_lines is quite long
+
+-started the process, but seems unnecessary to have a bunch of different classes that all need to be initialized with game, modifier, etc. Should be a simpler way to break up Tracker without the extra classes and such
+
+things I want to add:
+-option to compute splash stats - win % with/without a splash, which colors have the best splash win % (as splashed color or base colors)
+-maybe make “print_archetypes” an option in teh command too? (currently have to comment it back in). Need to think about how to control options, whether in the command or not
+-maybe instead of doing everything automatically, ask for user input for options. Or at least there could be a command for with_options or something to be more interactive. Not sure exactly..
+-ability to easily analyze old formats too - need to think of the best way to do this, either pass in the filename or keyword or something.
+  -also want a way to generate a doc out of this (I think I started this with “do_purge”
+  -then aggregate all sets stats (color, archetype, etc)

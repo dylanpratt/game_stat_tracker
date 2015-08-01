@@ -24,24 +24,25 @@ class Tracker
           else
             []
         end
-      @game_deck_types =
-        case game
-          when 'hex'
-            ["control", "aggro", "midrange", "bunnies", "dwarves", "humans"]
-          when 'magic'
-            if modifier == 'm15'
-              ["control", "aggro", "midrange", "convoke", "auras", "graveyard"]
-            elsif modifier == 'khans'
-              ['jeskai-strict', 'jeskai-loose', 'temur-strict', 'temur-loose', 'mardu-strict', 'mardu-loose', 'sultai-strict', 'sultai-loose', 'abzan-strict', 'abzan-loose', '2-color', '2-color-with-splash', '4-color', '5-color']
-            elsif modifier == 'mm15'
-              ["control", "aggro", "midrange", "graft", "spirits", "elementals", "tokens", "5color", "affinity"]
-            else
-              ["control", "aggro", "midrange"]
-            end
-          when 'magic-m15'
-          else
-            []
-        end
+      @game_deck_types = []
+        # Old static game_deck_types, needs to be tested on cube and old formats, might break
+        # case game
+        #   when 'hex'
+        #     ["control", "aggro", "midrange", "bunnies", "dwarves", "humans"]
+        #   when 'magic'
+        #     if modifier == 'm15'
+        #       ["control", "aggro", "midrange", "convoke", "auras", "graveyard"]
+        #     elsif modifier == 'khans'
+        #       ['jeskai-strict', 'jeskai-loose', 'temur-strict', 'temur-loose', 'mardu-strict', 'mardu-loose', 'sultai-strict', 'sultai-loose', 'abzan-strict', 'abzan-loose', '2-color', '2-color-with-splash', '4-color', '5-color']
+        #     elsif modifier == 'mm15'
+        #       ["control", "aggro", "midrange", "graft", "spirits", "elementals", "tokens", "5color", "affinity"]
+        #     else
+        #       ["control", "aggro", "midrange"]
+        #     end
+        #   when 'magic-m15'
+        #   else
+        #     []
+        # end
     elsif game == "hearthstone"
       @heroes = []
     end
@@ -153,6 +154,7 @@ class Tracker
   def process_ccg_lines(lines)
     # puts "lines length #{lines.count}"
     # puts "lines: #{lines}"
+
     lines.each { |line|
       # Strip the description
       if match = line.match(/(.*)\s-\s(.*)/)
@@ -174,6 +176,10 @@ class Tracker
         # Types
         if support_provided_types?
           rough_type = match[2]
+
+          # Add the type to @game_deck_types
+          @game_deck_types.push rough_type unless @game_deck_types.include? rough_type
+
           # Combine slang terms
           if rough_type.match(/mid/)
             types = ["midrange"]

@@ -81,25 +81,9 @@ class Tracker
       lines.unshift(first_line)
     end
 
-    original_lines = lines
+    lines = get_relevant_lines(lines)
 
-    # Just get the draft record lines for ccgs
-    start_index = nil
-    end_index = nil
-    lines.each_with_index { |line, i|
-      if match = line.match(/draft\srecord/)
-        start_index = i
-      elsif line.match(/(\\'97){3,}/)
-        end_index = i
-        break
-      end
-    }
-    start_index = 0 if game == "hearthstone"
-    if exists(start_index) and exists(end_index)
-      lines = lines[start_index+1..end_index-1]
-    end
-
-    puts 'raw data:', lines
+    #puts 'raw data:', lines
     if is_ccg?
       process_ccg_lines(lines)
       generate_categories
@@ -114,6 +98,35 @@ class Tracker
     #   do_purge(lines, original_lines)
     # end
 
+  end
+
+  def get_relevant_lines(lines)
+    # Just get the draft record lines for ccgs
+    start_index = nil
+    end_index = nil
+    lines.each_with_index { |line, i|
+      # If modifier = 'gauntlet' then we're looking for a hex gauntlet
+      if @modifier == 'gauntlet'
+        if match = line.match(/sealed\sgauntlet:/)
+          start_index = i
+        elsif line.match(/end\sof\ssealed\sgauntlet/)
+          end_index = i
+          break
+        end
+      else
+        if match = line.match(/draft\srecord:/)
+          start_index = i
+        elsif line.match(/(\\'97){3,}/) or line.match(/end\sof\sdraft\srecord/)
+          end_index = i
+          break
+        end
+      end
+    }
+    start_index = 0 if game == "hearthstone"
+    if exists(start_index) and exists(end_index)
+      lines = lines[start_index+1..end_index-1]
+    end
+    lines
   end
 
   # def do_purge(lines, original_lines)
@@ -309,6 +322,10 @@ class Tracker
     ["hex", "magic"].include? game
   end
 
+  def is_hex?
+    game == "hex"
+  end
+
   # Does the game and modifier support providing a deck type?
   def support_provided_types?
     if modifier == 'khans'
@@ -457,17 +474,26 @@ class Tracker
     # If we're to include byes, add them as wins
     wins += record[:byes] if include_byes
     if @game == 'hex'
-      case wins
-        when 0
-          return 0
-        when 1
-          return 2
-        when 2
-          return 3
-        when 3
-          return 5
+      if @modifier == 'gauntlet'
+        puts "Error! Wins isn't 0 through 5", wins if (wins < 0) or (wins > 5)
+        if wins < 5
+          return wins
         else
-          puts 'Error! Wins isnt 0, 1, 2 or 3', wins
+          return 6
+        end
+      else
+        case wins
+          when 0
+            return 0
+          when 1
+            return 2
+          when 2
+            return 3
+          when 3
+            return 5
+          else
+            puts 'Error! Wins isnt 0, 1, 2 or 3', wins
+        end
       end
     end
     if @game == 'magic'
@@ -590,7 +616,7 @@ class Tracker
   #   loader.choose_and_load_file
   # end
 
-  def choose_and_load_file
+  def choose_and_load_file_from_mac
     case game
       when "hex"
         self.load("/Users/dylanpratt/Documents/stuff/game_notes/hex_notes.rtf")
@@ -602,6 +628,26 @@ class Tracker
             self.load("/Users/dylanpratt/Documents/stuff/game_notes/modern_masters_notes.rtf")
           else
             self.load("/Users/dylanpratt/Documents/stuff/game_notes/magic_notes.rtf")
+        end
+      when "hearthstone"
+        self.load("/Users/dylanpratt/Documents/stuff/game_notes/hearthstone_notes.rtf")
+      else
+        puts "Couldn't load file, unknown game type #{game}"
+    end
+  end
+
+  def choose_and_load_file_from_windows
+    case game
+      when "hex"
+        self.load("C:/Users/Dylan/Documents/random/hex_notes.txt")
+      when "magic"
+        case modifier
+          when "khans"
+            self.load("/Users/dylanpratt/Documents/stuff/game_notes/khans.rtf")
+          when "mm15"
+            self.load("/Users/dylanpratt/Documents/stuff/game_notes/modern_masters_notes.rtf")
+          else
+            self.load("C:/Users/Dylan/Documents/random/magic_notes.txt")
         end
       when "hearthstone"
         self.load("/Users/dylanpratt/Documents/stuff/game_notes/hearthstone_notes.rtf")

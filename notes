@@ -1,6 +1,10 @@
 
 game stat tracker notes:
 
+planning for adding hex gauntlets:
+-basically have it process everything again, this time looking for sealed guantlet and with different prizes
+-eh I guess its easier to just do seperate files, since I'd basically have to run the tracker again. So just do it in a seperate file with "gauntlet" modifier for now. Then later if I want to figure out how to combine multiple batches I can do it then. Actually could have it in the same file but just look for "sealed gauntlet" instead of "draft record"! Excellent idea!
+
 organization:
 current composition:
 -class Deck which initializes with attributes and has helper methods defined to analyze attributes
